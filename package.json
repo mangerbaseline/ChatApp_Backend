@@ -4,9 +4,12 @@
   "description": "real-time chat-app",
   "main": "app.js",
   "type": "module",
-  "scripts": {
-    "dev": "node app.js"
-  },
+  "scripts": 
+  {
+  "start": "node server/app.js",
+  "dev": "node server/app.js"
+}
+,
   "keywords": [],
   "author": "",
   "license": "ISC",
