@@ -2,10 +2,10 @@
   "name": "server",
   "version": "1.0.0",
   "description": "real-time chat-app",
-  "main": "index.js",
+  "main": "app.js",
   "type": "module",
   "scripts": {
-    "dev": "node index.js"
+    "dev": "node app.js"
   },
   "keywords": [],
   "author": "",
