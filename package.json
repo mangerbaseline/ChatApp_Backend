@@ -4,11 +4,11 @@
   "description": "real-time chat-app",
   "main": "app.js",
   "type": "module",
-  "scripts": 
-  {
+  "scripts": {
   "start": "node server/app.js",
-  "dev": "node server/app.js"
+  "dev": "nodemon server/app.js"
 }
+
 ,
   "keywords": [],
   "author": "",
