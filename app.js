@@ -18,7 +18,7 @@ const server = http.createServer(app);
 // Middleware
 app.use(express.json());
 app.use(cors({
-  origin: ['https://chat-app-fronend-pi.vercel.app/'],
+  origin: ['http://localhost:3000', 'http://192.168.1.253:3000', 'https://chatapp-backend-j1f0.onrender.com'],
   credentials: true
 }));
 
@@ -40,7 +40,7 @@ app.use('/friend', friendrouter);
 // Socket.IO setup
 const io = new Server(server, {
   cors: {
-    origin: ['https://chat-app-fronend-pi.vercel.app/'],
+    origin: ['http://localhost:3000', 'http://192.168.1.253:3000', 'https://chatapp-backend-j1f0.onrender.com'],
     credentials: true
   }
 });
