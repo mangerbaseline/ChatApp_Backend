@@ -9,6 +9,12 @@ import router from './routes/authroutes.js';
 import messagerouter from './routes/messageroutes.js';
 import friendrouter from './routes/friendrouter.js';
 import Message from './models/message.js';
+import grouprouter from './routes/groupRoutes.js';
+import authMiddleware from './middleware/auth.js';
+import GroupMessage from './models/groupMessage.js';
+import Group from './models/group.js';
+import User from './models/User.js';
+
 
 dotenv.config();
 
@@ -33,6 +39,7 @@ app.use(cors({
 app.use('/', router);
 app.use('/messages', messagerouter);
 app.use('/friend', friendrouter);
+app.use('/group',grouprouter,authMiddleware);
 
 // Connect to MongoDB
 (async function dbconnect() {
@@ -51,26 +58,84 @@ const io = new Server(server, {
     credentials: true
   }
 });
-io.on('connection', (socket) => {
+io.on('connection', async(socket) => {
   const userId = socket.handshake.query.userId;
 
   if (userId) {
     socket.join(userId); // Join room named after the userId
     console.log(`User ${userId} connected with socket ${socket.id}`);
   }
+  //   const groups =  await Group.find({ members: userId }); // fetch groups user belongs to
+  //   groups.forEach(g => {
+  //     socket.join(g._id.toString()); // join each group room
+  //     console.log(`User ${userId} joined group room ${g._id}`);
+  //   });
+  
 
   socket.on('private_message', async ({ to, from, message }) => {
     try {
       const newMsg = new Message({ to, from, message });
       await newMsg.save();
-      console.log(`Saved message from ${from} to ${to}: ${message}`);
-
-      // Send only to the intended user's room
       io.to(to).emit('private_message', { from, to, message });
     } catch (err) {
       console.log('Error saving message:', err);
     }
+    
   });
+    socket.on("friend-request-accepted", ({ senderId, receiverId }) => {
+    console.log(`Friend request accepted between ${senderId} and ${receiverId}`);
+    // Notify both users
+    io.to(senderId).emit("friend-request-accepted", { receiverId });
+    io.to(receiverId).emit("friend-request-accepted", { senderId });
+  });
+
+  // Existing message handling...
+  // socket.on('private_message', async ({ to, from, message }) => {
+  //   try {
+  //     const newMsg = new Message({ to, from, message });
+  //     await newMsg.save();
+  //     io.to(to).emit('private_message', { from, to, message });
+  //   } catch (err) {
+  //     console.log('Error saving message:', err);
+  //   }
+  // })
+
+  /////group
+  socket.on("join_groups", async (userId) => {
+  try {
+    const groups = await Group.find({ members: userId });
+    groups.forEach(g => {
+      socket.join(g._id.toString());
+      console.log(`User ${userId} joined group room ${g._id}`);
+    });
+  } catch (err) {
+    console.error("Error joining groups:", err);
+  }
+});
+
+socket.on("group_message", async ({ groupId, fromId, message }) => {
+  try {
+    const newGroupMsg = new GroupMessage({
+      sender: fromId,
+      groupId,
+      text: message
+    });
+    await newGroupMsg.save();
+
+    // fetch sender name
+    const sender = await User.findById(fromId).select("name");
+
+    io.to(groupId).emit("group_message", {
+      groupId,
+      fromId,
+      fromName: sender?.name || "Unknown",
+      message,
+      timestamp: newGroupMsg.timestamp
+    });
+  } catch (err) {
+    console.error("Error saving group message:", err);
+  }
+});
 
   socket.on('disconnect', () => {
     console.log(`Socket ${socket.id} disconnected`);

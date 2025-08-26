@@ -4,6 +4,7 @@ import { Router } from 'express';
 import session from 'session';
 // import Users from '../models/User.js';
 import User from '../models/User.js';
+import Group from '../models/group.js';
 
 const router = Router();
 
@@ -76,7 +77,7 @@ router.get('/all-users/:currentUserId', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch users' });
   }
 });
-
+  
 // GET /user/:id
 router.get('/user/:id', async (req, res) => {
   try {
@@ -87,5 +88,19 @@ router.get('/user/:id', async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
+
+
+///get group name after clicking on it 
+
+router.get('/group/:id',async(req,res)=>{
+  try{
+    const group= await Group.findById(req.params.id).select('name');
+    if(!group) return res.status(404).json({message:'Group not found'});
+    res.json(group);
+  }
+  catch(err){
+    res.status(500).json({error:'Server error'});
+  }
+})
 
 export default router;
