@@ -66,5 +66,7 @@ friendrouter.get('/list/:userId', async (req, res) => {
   res.json(user.friends);
 })
 
+// friendrouter.get('/')
+
 export default friendrouter;
 

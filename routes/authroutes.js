@@ -92,15 +92,19 @@ router.get('/user/:id', async (req, res) => {
 
 ///get group name after clicking on it 
 
-router.get('/group/:id',async(req,res)=>{
-  try{
-    const group= await Group.findById(req.params.id).select('name');
-    if(!group) return res.status(404).json({message:'Group not found'});
+router.get('/group/:id', async (req, res) => {
+  try {
+    const group = await Group.findById(req.params.id)
+      .select('name members')            // include members field
+      .populate('members', 'name');      // populate members with only 'name' field
+
+    if (!group) return res.status(404).json({ message: 'Group not found' });
+
     res.json(group);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
   }
-  catch(err){
-    res.status(500).json({error:'Server error'});
-  }
-})
+});
 
 export default router;
