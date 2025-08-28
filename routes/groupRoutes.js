@@ -78,5 +78,29 @@ grouprouter.post('/:groupId/add-members', async (req, res) => {
   }
 });
 
+grouprouter.post('/:groupId/remove-members',async(req,res)=>{
+  try{
+    const {groupId}=req.params;
+    const {memberIds}=req.body;
+
+    const group= await Group.findById(groupId);
+    if(!group){
+      return res.status(404).json({message:"Group not found"});
+    }
+    console.log('filtering');
+    
+        group.members = group.members.filter(
+      memberId => !memberIds.includes(String(memberId)) 
+    );
+    console.log('filtering failed');
+    await group.save();
+    res.status(200).json({message:'Members removed successfully', group});
+  }
+  catch(err){
+    console.log(('error removing members', err));
+    res.status(500).json({message:"internal server error"}) 
+  }
+})
+
 
 export default grouprouter;
