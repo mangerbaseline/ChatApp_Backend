@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import http from 'http';
+import path from 'path';
 import { Server } from 'socket.io';
 
 import router from './routes/authroutes.js';
@@ -14,6 +15,9 @@ import authMiddleware from './middleware/auth.js';
 import GroupMessage from './models/groupMessage.js';
 import Group from './models/group.js';
 import User from './models/User.js';
+import profileRouter from './routes/profilepicroutes.js';
+import { fileURLToPath } from "url";
+
 
 
 dotenv.config();
@@ -40,6 +44,12 @@ app.use('/', router);
 app.use('/messages', messagerouter);
 app.use('/friend', friendrouter);
 app.use('/group',grouprouter,authMiddleware);
+app.use('/upload-pic',profileRouter);
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+app.use("/uploads", express.static(path.join(__dirname, "public/uploads")));
 
 // Connect to MongoDB
 (async function dbconnect() {
@@ -89,16 +99,6 @@ io.on('connection', async(socket) => {
     io.to(receiverId).emit("friend-request-accepted", { senderId });
   });
 
-  // Existing message handling...
-  // socket.on('private_message', async ({ to, from, message }) => {
-  //   try {
-  //     const newMsg = new Message({ to, from, message });
-  //     await newMsg.save();
-  //     io.to(to).emit('private_message', { from, to, message });
-  //   } catch (err) {
-  //     console.log('Error saving message:', err);
-  //   }
-  // })
 
   /////group
   socket.on("join_groups", async (userId) => {

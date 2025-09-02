@@ -57,7 +57,7 @@ router.post('/login', async (req, res) => {
     return res.json({
       message: 'Logged in successfully',
       token,
-      user: { id: user._id, name: user.name, email: user.email }
+      user: { id: user._id, name: user.name, email: user.email, }
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });
@@ -81,7 +81,7 @@ router.get('/all-users/:currentUserId', async (req, res) => {
 // GET /user/:id
 router.get('/user/:id', async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select('name'); // select only name
+    const user = await User.findById(req.params.id).select('name profilePic'); // select only name
     if (!user) return res.status(404).json({ message: 'User not found' });
     res.json(user);
   } catch (err) {
@@ -95,7 +95,7 @@ router.get('/user/:id', async (req, res) => {
 router.get('/group/:id', async (req, res) => {
   try {
     const group = await Group.findById(req.params.id)
-      .select('name members')            // include members field
+      .select('name members profilePic')            // include members field
       .populate('members', 'name');      // populate members with only 'name' field
 
     if (!group) return res.status(404).json({ message: 'Group not found' });

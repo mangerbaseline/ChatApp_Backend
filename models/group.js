@@ -2,6 +2,7 @@ import mongoose, { Schema } from "mongoose";
 
 const groupSchema = new mongoose.Schema({
     name: { type: String, required: true },
+    profilePic:{type:String, default:"/avatar.png"},
     createdBy: { 
         type: mongoose.Schema.Types.ObjectId, 
         ref: "User", 
