@@ -61,7 +61,7 @@ profileRouter.post("/:id", upload.single("profilePic"), async (req, res) => {
 /**
  * Upload profile picture for a group
  */
-profileRouter.post("/group/:id", upload.single("profilePic"), async (req, res) => {
+profileRouter.post("/id/:id", upload.single("profilePic"), async (req, res) => {
   try {
     let imageUrl;
 
