@@ -1,46 +1,28 @@
-// import mongoose from 'mongoose';
+// import mongoose from "mongoose";
 
-// const messageSchema = new mongoose.Schema(
-//   {
-//     sender: {
-//       type: mongoose.Schema.Types.ObjectId,
-//       ref: 'User',
-//       required: true,
+// const messageSchema=new mongoose.Schema({
+//     from:{type:String, required:true
 //     },
-//     receiver: {
-//       type: mongoose.Schema.Types.ObjectId,
-//       ref: 'User',
-//       required: true,
-//     },
-//     content: {
-//       type: String,
-//       required: true,
-//       trim: true,
-//     },
-//     read: {
-//       type: Boolean,
-//       default: false,
-//     }
-//   },
-//   {
-//     timestamps: true, 
-//   }
-// );
+//     to:{type:String, required:true},
+//     message:{type:String},
+//     file:{type:String},
+//     timestamp:{type:Date, default:Date.now}
+// })
 
 // const Message = mongoose.model('Message', messageSchema);
-
 // export default Message;
 
 
 import mongoose from "mongoose";
 
-const messageSchema=new mongoose.Schema({
-    from:{type:String, required:true
-    },
-    to:{type:String, required:true},
-    message:{type:String, required:true},
-    timestamp:{type:Date, default:Date.now}
-})
+const messageSchema = new mongoose.Schema({
+  from: { type: String, required: true },
+  to: { type: String, required: true },
+  message: { type: String }, // text message (optional)
+  fileUrl: { type: String, default: null }, // Cloudinary URL
+  fileType: { type: String, default: null }, // e.g. image/png, application/pdf
+  timestamp: { type: Date, default: Date.now }
+});
 
-const Message = mongoose.model('Message', messageSchema);
+const Message = mongoose.model("Message", messageSchema);
 export default Message;

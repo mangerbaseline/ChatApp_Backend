@@ -14,7 +14,7 @@ messagerouter.get('/',async(req,res)=>{
                 {from: user2, to:user1}
             ]
         }).sort({timestamp:1});
-        res.json(messages)
+        res.json(messages);
         
     }
     catch(err){
@@ -42,6 +42,8 @@ messagerouter.get('/group/:groupId', async (req, res) => {
     const formatted = messages.map(msg => ({
       fromName: msg.sender._id.toString()===currUserId ? "You" : msg.sender.name,
       text: msg.text,
+      fileUrl: msg.fileUrl || null,      // ✅ include image/file URL
+      fileType: msg.fileType || null,
       timestamp: msg.timestamp
     }));
 
