@@ -148,50 +148,109 @@ socket.on("private_file", async ({ to, from, fileName, fileType, fileData }) => 
 
 
 /////////////////group file
-socket.on("group_file", async ({ from ,groupId, fileName, fileType, fileData }) => {
+// socket.on("group_file", async ({ from ,groupId, fileName, fileType, fileData }) => {
+//   try {
+//     console.log("📂 Group file received for group:", groupId);
+
+//     let fileUrl = null;
+
+//     if (fileData) {
+//       const buffer = Buffer.from(fileData, "base64");
+//       const tempPath = `public/uploads/${Date.now()}_${fileName}`;
+//       fs.writeFileSync(tempPath, buffer);
+
+//       const result = await cloudinary.uploader.upload(tempPath, {
+//         resource_type: "auto",
+//         folder: "group_files",
+//       });
+//       console.log("result is:", result);
+      
+
+//       fileUrl = result.secure_url;
+//       console.log("file url is:", fileUrl);
+      
+//       fs.unlinkSync(tempPath);
+//     }
+
+//     // Save file message in DB
+//     const newMsg = new GroupMessage({
+//      sender: new mongoose.Types.ObjectId(from),   // must be ObjectId
+//       groupId: new mongoose.Types.ObjectId(groupId),          
+//       text: null,
+//       fileUrl:fileUrl,
+//       fileType,
+//     });
+
+//     await newMsg.save();
+// console.log("message saved: ", newMsg);
+
+//     console.log("✅ Group file saved:", newMsg);
+
+//     // Emit file to all group members
+//     socket.to(groupId).emit("group_file", newMsg);
+//   } catch (err) {
+//     console.error("❌ Error handling group file:", err);
+//   }
+// });
+socket.on("group_file", async ({ from, groupId, fileName, fileType, fileData }) => {
+  console.log("inside socket");
+  
   try {
+    console.log("filetype:", fileType);
+    
     console.log("📂 Group file received for group:", groupId);
 
     let fileUrl = null;
-
+ let resourceType = "auto";
+      if (fileType.startsWith("video/")) {
+        resourceType = "video";
+      } else if (fileType.startsWith("application/")) {
+        resourceType = "raw"; // PDFs, docs, zips
+      }
     if (fileData) {
       const buffer = Buffer.from(fileData, "base64");
       const tempPath = `public/uploads/${Date.now()}_${fileName}`;
       fs.writeFileSync(tempPath, buffer);
 
       const result = await cloudinary.uploader.upload(tempPath, {
-        resource_type: "auto",
+        resource_type: resourceType,
         folder: "group_files",
       });
-      console.log("result is:", result);
-      
-
       fileUrl = result.secure_url;
-      console.log("file url is:", fileUrl);
-      
+
       fs.unlinkSync(tempPath);
     }
 
     // Save file message in DB
     const newMsg = new GroupMessage({
-     sender: new mongoose.Types.ObjectId(from),   // must be ObjectId
-      groupId: new mongoose.Types.ObjectId(groupId),          
+      sender: new mongoose.Types.ObjectId(from),
+      groupId: new mongoose.Types.ObjectId(groupId),
       text: null,
-      fileUrl:fileUrl,
+      fileUrl,
       fileType,
     });
 
     await newMsg.save();
-console.log("message saved: ", newMsg);
-
     console.log("✅ Group file saved:", newMsg);
 
-    // Emit file to all group members
-    io.to(groupId).emit("group_file", newMsg);
+    // Emit file only to other group members (not the sender)
+    socket.to(groupId).emit("group_file", {
+      _id: newMsg._id,
+      groupId,
+      sender: newMsg.sender,
+      fileUrl: newMsg.fileUrl,
+      fileType: newMsg.fileType,
+      text: null,
+      timestamp: newMsg.timestamp,
+    });
+
   } catch (err) {
     console.error("❌ Error handling group file:", err);
   }
 });
+
+
+
 
     socket.on("friend-request-accepted", ({ senderId, receiverId }) => {
     console.log(`Friend request accepted between ${senderId} and ${receiverId}`);
