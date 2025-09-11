@@ -110,7 +110,7 @@ socket.on("private_file", async ({ to, from, fileName, fileType, fileData }) => 
       const buffer = Buffer.from(fileData, "base64");
       const tempPath = `public/uploads/${Date.now()}_${fileName}`;
       fs.writeFileSync(tempPath, buffer);
-console.log("Before cloudinary");
+    //  console.log("Before cloudinary");
 
       const result = await cloudinary.uploader.upload(tempPath, {
         resource_type: "auto",
