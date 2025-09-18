@@ -65,6 +65,11 @@ app.use("/uploads", express.static(path.join(__dirname, "public/uploads")));
   }
 })();
 
+
+
+
+const onlineUsers = new Map(); // userId -> [socketIds]
+
 // Socket.IO setup
 const io = new Server(server, {
   cors: {
@@ -76,15 +81,15 @@ io.on('connection', async(socket) => {
   const userId = socket.handshake.query.userId;
 
   if (userId) {
-    socket.join(userId); // Join room named after the userId
+        socket.join(userId); // Join room named after the userId
+
+       if (!onlineUsers.has(userId)) {
+      onlineUsers.set(userId, []);
+    }
+    onlineUsers.get(userId).push(socket.id);
     console.log(`User ${userId} connected with socket ${socket.id}`);
+        socket.broadcast.emit("user-online", userId);
   }
-  //   const groups =  await Group.find({ members: userId }); // fetch groups user belongs to
-  //   groups.forEach(g => {
-  //     socket.join(g._id.toString()); // join each group room
-  //     console.log(`User ${userId} joined group room ${g._id}`);
-  //   });
-  
 
   socket.on('private_message', async ({ to, from, message }) => {
     try {
@@ -148,92 +153,38 @@ socket.on("private_file", async ({ to, from, fileName, fileType, fileData }) => 
 
 
 /////////////////group file
-// socket.on("group_file", async ({ from ,groupId, fileName, fileType, fileData }) => {
-//   try {
-//     console.log("📂 Group file received for group:", groupId);
-
-//     let fileUrl = null;
-
-//     if (fileData) {
-//       const buffer = Buffer.from(fileData, "base64");
-//       const tempPath = `public/uploads/${Date.now()}_${fileName}`;
-//       fs.writeFileSync(tempPath, buffer);
-
-//       const result = await cloudinary.uploader.upload(tempPath, {
-//         resource_type: "auto",
-//         folder: "group_files",
-//       });
-//       console.log("result is:", result);
-      
-
-//       fileUrl = result.secure_url;
-//       console.log("file url is:", fileUrl);
-      
-//       fs.unlinkSync(tempPath);
-//     }
-
-//     // Save file message in DB
-//     const newMsg = new GroupMessage({
-//      sender: new mongoose.Types.ObjectId(from),   // must be ObjectId
-//       groupId: new mongoose.Types.ObjectId(groupId),          
-//       text: null,
-//       fileUrl:fileUrl,
-//       fileType,
-//     });
-
-//     await newMsg.save();
-// console.log("message saved: ", newMsg);
-
-//     console.log("✅ Group file saved:", newMsg);
-
-//     // Emit file to all group members
-//     socket.to(groupId).emit("group_file", newMsg);
-//   } catch (err) {
-//     console.error("❌ Error handling group file:", err);
-//   }
-// });
 socket.on("group_file", async ({ from, groupId, fileName, fileType, fileData }) => {
-  console.log("inside socket");
-  
+  console.log("📥 group_file hit:", fileName, fileType);
+
   try {
-    console.log("filetype:", fileType);
+    // fileData is now an ArrayBuffer → convert to Buffer
+    const buffer = Buffer.from(fileData);
+
+    const tempPath = `public/uploads/${Date.now()}_${fileName}`;
+    fs.writeFileSync(tempPath, buffer);
+
     
-    console.log("📂 Group file received for group:", groupId);
+    const result = await cloudinary.uploader.upload(tempPath, {
+      resource_type: "auto",
+      folder: "group_files",
+    });
 
-    let fileUrl = null;
- let resourceType = "auto";
-      if (fileType.startsWith("video/")) {
-        resourceType = "video";
-      } else if (fileType.startsWith("application/")) {
-        resourceType = "raw"; // PDFs, docs, zips
-      }
-    if (fileData) {
-      const buffer = Buffer.from(fileData, "base64");
-      const tempPath = `public/uploads/${Date.now()}_${fileName}`;
-      fs.writeFileSync(tempPath, buffer);
+    fs.unlinkSync(tempPath);
 
-      const result = await cloudinary.uploader.upload(tempPath, {
-        resource_type: resourceType,
-        folder: "group_files",
-      });
-      fileUrl = result.secure_url;
-
-      fs.unlinkSync(tempPath);
-    }
-
-    // Save file message in DB
+    // Save to DB
     const newMsg = new GroupMessage({
       sender: new mongoose.Types.ObjectId(from),
       groupId: new mongoose.Types.ObjectId(groupId),
       text: null,
-      fileUrl,
+      fileUrl: result.secure_url,
       fileType,
-    });
+    }); 
 
     await newMsg.save();
+
     console.log("✅ Group file saved:", newMsg);
 
-    // Emit file only to other group members (not the sender)
+    // Emit to others (not sender)
     socket.to(groupId).emit("group_file", {
       _id: newMsg._id,
       groupId,
@@ -248,7 +199,6 @@ socket.on("group_file", async ({ from, groupId, fileName, fileType, fileData }) 
     console.error("❌ Error handling group file:", err);
   }
 });
-
 
 
 
@@ -299,6 +249,19 @@ socket.on("group_message", async ({ groupId, fromId, message }) => {
 
   socket.on('disconnect', () => {
     console.log(`Socket ${socket.id} disconnected`);
+     if (!userId) return;
+
+    const sockets = onlineUsers.get(userId) || [];
+    const updated = sockets.filter(id => id !== socket.id);
+
+    if (updated.length > 0) {
+      onlineUsers.set(userId, updated);
+    } else {
+      onlineUsers.delete(userId);
+
+      // Notify others this user went offline
+      socket.broadcast.emit("user-offline", userId);
+    }
   });
 });
 

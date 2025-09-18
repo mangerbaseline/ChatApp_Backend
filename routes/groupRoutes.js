@@ -8,12 +8,12 @@ const grouprouter = express.Router();
 
 grouprouter.post('/creategroup', async (req, res) => {
 try {
-    const { name, members, createdBy } = req.body;
+    const { name, members, createdBy, category } = req.body;
     
     // Validation
-    if (!name || !Array.isArray(members) || members.length === 0 || !createdBy) {
+    if (!name || !Array.isArray(members) || members.length === 0 || !createdBy || !category) {
         return res.status(400).json({ 
-            error: "Group name, members (non-empty array), and user ID are required" 
+            error: "Group name, members (non-empty array), category and user ID are required" 
         });
     }
     // Convert string IDs to ObjectId if needed
@@ -28,6 +28,7 @@ try {
       name,
       createdBy: convertToObjectId(createdBy),
       members: [convertToObjectId(createdBy), ...members.map(convertToObjectId)], 
+      category,
     });
     
     await group.save();

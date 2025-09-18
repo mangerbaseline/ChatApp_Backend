@@ -5,13 +5,14 @@ const groupSchema = new mongoose.Schema({
     profilePic:{type:String, default:"/avatar.png"},
     createdBy: { 
         type: mongoose.Schema.Types.ObjectId, 
-        ref: "User", 
+        ref: "User",
         required: true 
     },
     members: [{
         type: mongoose.Schema.Types.ObjectId, 
         ref: "User"
     }],
+    category:{type:String, required:true},
     createdAt: { type: Date, default: Date.now }
 });
 const Group=mongoose.model('Group', groupSchema)
