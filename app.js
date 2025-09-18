@@ -21,6 +21,7 @@ dotenv.config();
 
 import cloudinary from './cloudinary.js';
 import fs from 'fs';
+import client from './radisClient.js';
 
 
 
@@ -77,23 +78,44 @@ const io = new Server(server, {
     credentials: true
   }
 });
+// io.on('connection', async(socket) => {
+//   const userId = socket.handshake.query.userId;
+
+//   if (userId) {
+//         socket.join(userId); // Join room named after the userId
+
+//        if (!onlineUsers.has(userId)) {
+//       onlineUsers.set(userId, []);
+//     }
+//     onlineUsers.get(userId).push(socket.id);
+//     console.log(`User ${userId} connected with socket ${socket.id}`);
+//         socket.broadcast.emit("user-online", userId);
+//   }
+
 io.on('connection', async(socket) => {
   const userId = socket.handshake.query.userId;
-
   if (userId) {
-        socket.join(userId); // Join room named after the userId
+    socket.join(userId);
 
-       if (!onlineUsers.has(userId)) {
-      onlineUsers.set(userId, []);
-    }
-    onlineUsers.get(userId).push(socket.id);
+    // 1. Add user to the online_users set in Redis
+    await client.sAdd("online_users", userId);
     console.log(`User ${userId} connected with socket ${socket.id}`);
-        socket.broadcast.emit("user-online", userId);
+
+    // 2. Broadcast the 'user-online' event to all other clients
+    socket.broadcast.emit("user-online", userId);
   }
 
-  socket.on('private_message', async ({ to, from, message }) => {
+// Get all online users
+const onlineUsers = await client.sMembers("online_users");
+console.log("Currently online users:", onlineUsers);
+
+
+
+socket.on('private_message', async ({ to, from, message }) => {
     try {
       const newMsg = new Message({ to, from, message });
+      console.log("message sent from",{from}, "and", {message});
+    
       await newMsg.save();
       io.to(to).emit('private_message', { from, to, message });
     } catch (err) {
@@ -247,19 +269,38 @@ socket.on("group_message", async ({ groupId, fromId, message }) => {
   }
 });
 
-  socket.on('disconnect', () => {
+//   socket.on('disconnect', () => {
+//     console.log(`Socket ${socket.id} disconnected`);
+//      if (!userId) return;
+
+//     const sockets = onlineUsers.get(userId) || [];
+//     const updated = sockets.filter(id => id !== socket.id);
+
+//     if (updated.length > 0) {
+//       onlineUsers.set(userId, updated);
+//     } else {
+//       onlineUsers.delete(userId);
+
+//       // Notify others this user went offline
+//       socket.broadcast.emit("user-offline", userId);
+//     }
+//   });
+// });
+
+
+  socket.on('disconnect', async () => {
     console.log(`Socket ${socket.id} disconnected`);
-     if (!userId) return;
+    if (!userId) return;
 
-    const sockets = onlineUsers.get(userId) || [];
-    const updated = sockets.filter(id => id !== socket.id);
+    // Check if the user has any other active sockets
+    // This is important to handle multiple tabs/devices
+    const otherSockets = await io.in(userId).fetchSockets();
 
-    if (updated.length > 0) {
-      onlineUsers.set(userId, updated);
-    } else {
-      onlineUsers.delete(userId);
+    if (otherSockets.length === 0) {
+      // 3. If no other sockets are online for this user, remove from Redis
+      await client.sRem("online_users", userId);
 
-      // Notify others this user went offline
+      // 4. Notify others this user went offline
       socket.broadcast.emit("user-offline", userId);
     }
   });

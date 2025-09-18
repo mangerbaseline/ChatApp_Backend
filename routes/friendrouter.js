@@ -1,6 +1,7 @@
 import express from 'express';
 import User from '../models/User.js';
 import router from './authroutes.js';
+import client from '../radisClient.js';
 
 const friendrouter=express.Router();
 
@@ -60,13 +61,34 @@ friendrouter.post('/accept', async (req, res) => {
   res.status(200).json({ message: 'Friend request accepted' });
 });
 
+// friendrouter.get('/list/:userId', async (req, res) => {
+//      const user = await User.findById(req.params.userId).populate('friends', 'name _id');
+//   if (!user) return res.status(404).json({ message: 'User not found' });
+//   res.json(user.friends);
+// })
+
+
 friendrouter.get('/list/:userId', async (req, res) => {
-     const user = await User.findById(req.params.userId).populate('friends', 'name _id');
-  if (!user) return res.status(404).json({ message: 'User not found' });
-  res.json(user.friends);
-})
+  try {
+    const user = await User.findById(req.params.userId)
+      .populate('friends', 'name _id');
+    if (!user) return res.status(404).json({ message: 'User not found' });
 
-// friendrouter.get('/')
+    // Get online users from Redis
+    const onlineUsers = await client.sMembers("online_users");
 
+    // Map friends and add online flag
+    const friendsWithStatus = user.friends.map(friend => ({
+      _id: friend._id,
+      name: friend.name,
+      online: onlineUsers.includes(friend._id.toString()) // check in Redis
+    }));
+
+    res.json(friendsWithStatus);
+  } catch (err) {
+    console.error("Error fetching friends:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 export default friendrouter;
 
