@@ -35,7 +35,7 @@ app.use(express.json());
 const allowedOrigins = [
   'http://localhost:3000',
   'http://192.168.1.253:3000',
-  'https://chat-app-fronend-pi.vercel.app' 
+  'https://chat-app-fronend-pi.vercel.app'
 ];
 app.use(cors({
   origin: allowedOrigins,
@@ -48,8 +48,8 @@ app.use(cors({
 app.use('/', router);
 app.use('/messages', messagerouter);
 app.use('/friend', friendrouter);
-app.use('/group',grouprouter,authMiddleware);
-app.use('/upload-pic',profileRouter);
+app.use('/group', grouprouter, authMiddleware);
+app.use('/upload-pic', profileRouter);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -78,21 +78,9 @@ const io = new Server(server, {
     credentials: true
   }
 });
-// io.on('connection', async(socket) => {
-//   const userId = socket.handshake.query.userId;
 
-//   if (userId) {
-//         socket.join(userId); // Join room named after the userId
 
-//        if (!onlineUsers.has(userId)) {
-//       onlineUsers.set(userId, []);
-//     }
-//     onlineUsers.get(userId).push(socket.id);
-//     console.log(`User ${userId} connected with socket ${socket.id}`);
-//         socket.broadcast.emit("user-online", userId);
-//   }
-
-io.on('connection', async(socket) => {
+io.on('connection', async (socket) => {
   const userId = socket.handshake.query.userId;
   if (userId) {
     socket.join(userId);
@@ -105,126 +93,169 @@ io.on('connection', async(socket) => {
     socket.broadcast.emit("user-online", userId);
   }
 
-// Get all online users
-const onlineUsers = await client.sMembers("online_users");
-console.log("Currently online users:", onlineUsers);
+// When a user joins, put them in a room with their userId
+socket.on("join", (userId) => {
+  socket.join(userId);
+  console.log(`User ${userId} joined their personal room`);
+});
+
+// Caller sends a call offer
+socket.on("callUser", (data) => {
+  console.log("callUser event received:", data);
+
+  // Send the offer to the target user's room
+  socket.to(data.userToCall).emit("callUser", {
+    signalData: data.signalData,
+    from: data.from,        // caller's userId
+  });
+});
+
+// Receiver answers the call
+socket.on("answerCall", (data) => {
+  console.log("answerCall event received:", data);
+
+  // Send the answer back to the caller's room
+  socket.to(data.to).emit("callAccepted", data.signal);
+});
+// When a user joins, put them in a room with their userId
+// socket.on("join", (userId) => {
+//   socket.join(userId);
+//   console.log(`User ${userId} joined their personal room`);
+// });
+
+// Caller sends a call offer
+// socket.on("callUser", (data) => {
+//   console.log("callUser event received:", data);
+
+//   // Send the offer to the target user's room
+//   socket.to(data.userToCall).emit("callUser", {
+//     signalData: data.signalData,
+//     from: data.from,        // caller's userId
+//   });
+// });
+
+// Receiver answers the call
+// socket.on("answerCall", (data) => {
+//   console.log("answerCall event received:", data);
+
+//   // Send the answer back to the caller's room
+//   socket.to(data.to).emit("callAccepted", data.signal);
+// });
 
 
-
-socket.on('private_message', async ({ to, from, message }) => {
+  socket.on('private_message', async ({ to, from, message }) => {
     try {
       const newMsg = new Message({ to, from, message });
-      console.log("message sent from",{from}, "and", {message});
-    
+      console.log("message sent from", { from }, "and", { message });
+
       await newMsg.save();
       io.to(to).emit('private_message', { from, to, message });
     } catch (err) {
       console.log('Error saving message:', err);
     }
-    
+
+  });
+
+
+  // socket.on("private_file", async ({ to, from, fileName, fileType, fileData }) => {
+  //   try {
+  //     console.log("reached back");
+
+  //     let fileUrl = null;
+  //     if (fileData) {
+  //       // console.log("file data", fileData);
+
+  //       const buffer = Buffer.from(fileData, "base64");
+  //       const tempPath = `public/uploads/${Date.now()}_${fileName}`;
+  //       fs.writeFileSync(tempPath, buffer);
+  //       //  console.log("Before cloudinary");
+
+  //       const result = await cloudinary.uploader.upload(tempPath, {
+  //         resource_type: "auto",
+  //         folder: "chat_files",
+  //       });
+  //       console.log("after cloud", result);
+
+
+  //       fileUrl = result.secure_url;
+  //       console.log("file url is: ", fileUrl);
+
+  //       fs.unlinkSync(tempPath);
+  //     }
+
+  //     // Save file message
+  //     const newMsg = new Message({
+  //       from,
+  //       to,
+  //       message: null,
+  //       fileUrl: fileUrl,
+  //       fileType,
+  //     });
+  //     console.log("new message is:", newMsg);
+
+  //     await newMsg.save();
+
+  //     // Emit file message
+  //     io.to(to).emit("private_file", newMsg);
+  //     io.to(from).emit("private_file", newMsg);
+
+  //   } catch (err) {
+  //     console.error("Error handling file:", err);
+  //   }
+  // });
+
+
+  /////////////////group file
+  socket.on("group_file", async ({ from, groupId, fileName, fileType, fileData }) => {
+    console.log("📥 group_file hit:", fileName, fileType);
+
+    try {
+      // fileData is now an ArrayBuffer → convert to Buffer
+      const buffer = Buffer.from(fileData);
+
+      const tempPath = `public/uploads/${Date.now()}_${fileName}`;
+      fs.writeFileSync(tempPath, buffer);
+
+
+      const result = await cloudinary.uploader.upload(tempPath, {
+        resource_type: "auto",
+        folder: "group_files",
+      });
+
+      fs.unlinkSync(tempPath);
+
+      // Save to DB
+      const newMsg = new GroupMessage({
+        sender: new mongoose.Types.ObjectId(from),
+        groupId: new mongoose.Types.ObjectId(groupId),
+        text: null,
+        fileUrl: result.secure_url,
+        fileType,
+      });
+
+      await newMsg.save();
+
+      console.log("✅ Group file saved:", newMsg);
+
+      // Emit to others (not sender)
+      socket.to(groupId).emit("group_file", {
+        _id: newMsg._id,
+        groupId,
+        sender: newMsg.sender,
+        fileUrl: newMsg.fileUrl,
+        fileType: newMsg.fileType,
+        text: null,
+        timestamp: newMsg.timestamp,
+      });
+
+    } catch (err) {
+      console.error("❌ Error handling group file:", err);
+    }
   });
 
 
 
-socket.on("private_file", async ({ to, from, fileName, fileType, fileData }) => {
-  try {
-    console.log("reached back");
-    
-   let fileUrl = null;
-    if (fileData) {
-      // console.log("file data", fileData);
-      
-      const buffer = Buffer.from(fileData, "base64");
-      const tempPath = `public/uploads/${Date.now()}_${fileName}`;
-      fs.writeFileSync(tempPath, buffer);
-    //  console.log("Before cloudinary");
-
-      const result = await cloudinary.uploader.upload(tempPath, {
-        resource_type: "auto",
-        folder: "chat_files",
-      });
-      console.log("after cloud", result);
-      
-
-      fileUrl = result.secure_url;
-      console.log("file url is: ",fileUrl);
-      
-      fs.unlinkSync(tempPath);
-    }
-
-    // Save file message
-    const newMsg = new Message({
-      from,
-      to,
-      message: null,
-      fileUrl: fileUrl,
-      fileType,
-    });
-    console.log("new message is:" , newMsg);
-    
-    await newMsg.save();
-
-    // Emit file message
-    io.to(to).emit("private_file", newMsg);
-    io.to(from).emit("private_file", newMsg);
-
-  } catch (err) {
-    console.error("Error handling file:", err);
-  }
-});
-
-
-/////////////////group file
-socket.on("group_file", async ({ from, groupId, fileName, fileType, fileData }) => {
-  console.log("📥 group_file hit:", fileName, fileType);
-
-  try {
-    // fileData is now an ArrayBuffer → convert to Buffer
-    const buffer = Buffer.from(fileData);
-
-    const tempPath = `public/uploads/${Date.now()}_${fileName}`;
-    fs.writeFileSync(tempPath, buffer);
-
-    
-    const result = await cloudinary.uploader.upload(tempPath, {
-      resource_type: "auto",
-      folder: "group_files",
-    });
-
-    fs.unlinkSync(tempPath);
-
-    // Save to DB
-    const newMsg = new GroupMessage({
-      sender: new mongoose.Types.ObjectId(from),
-      groupId: new mongoose.Types.ObjectId(groupId),
-      text: null,
-      fileUrl: result.secure_url,
-      fileType,
-    }); 
-
-    await newMsg.save();
-
-    console.log("✅ Group file saved:", newMsg);
-
-    // Emit to others (not sender)
-    socket.to(groupId).emit("group_file", {
-      _id: newMsg._id,
-      groupId,
-      sender: newMsg.sender,
-      fileUrl: newMsg.fileUrl,
-      fileType: newMsg.fileType,
-      text: null,
-      timestamp: newMsg.timestamp,
-    });
-
-  } catch (err) {
-    console.error("❌ Error handling group file:", err);
-  }
-});
-
-
-
-    socket.on("friend-request-accepted", ({ senderId, receiverId }) => {
+  socket.on("friend-request-accepted", ({ senderId, receiverId }) => {
     console.log(`Friend request accepted between ${senderId} and ${receiverId}`);
     // Notify both users
     io.to(senderId).emit("friend-request-accepted", { receiverId });
@@ -234,58 +265,58 @@ socket.on("group_file", async ({ from, groupId, fileName, fileType, fileData }) 
 
   /////group
   socket.on("join_groups", async (userId) => {
-  try {
-    const groups = await Group.find({ members: userId });
-    groups.forEach(g => {
-      socket.join(g._id.toString());
-      console.log(`User ${userId} joined group room ${g._id}`);
-    });
-  } catch (err) {
-    console.error("Error joining groups:", err);
-  }
-});
+    try {
+      const groups = await Group.find({ members: userId });
+      groups.forEach(g => {
+        socket.join(g._id.toString());
+        console.log(`User ${userId} joined group room ${g._id}`);
+      });
+    } catch (err) {
+      console.error("Error joining groups:", err);
+    }
+  });
 
-socket.on("group_message", async ({ groupId, fromId, message }) => {
-  try {
-    const newGroupMsg = new GroupMessage({
-      sender: fromId,
-      groupId,
-      text: message
-    });
-    await newGroupMsg.save();
+  socket.on("group_message", async ({ groupId, fromId, message }) => {
+    try {
+      const newGroupMsg = new GroupMessage({
+        sender: fromId,
+        groupId,
+        text: message
+      });
+      await newGroupMsg.save();
 
-    // fetch sender name
-    const sender = await User.findById(fromId).select("name");
+      // fetch sender name
+      const sender = await User.findById(fromId).select("name");
 
-    io.to(groupId).emit("group_message", {
-      groupId,
-      fromId,
-      fromName: sender?.name || "Unknown",
-      message,
-      timestamp: newGroupMsg.timestamp
-    });
-  } catch (err) {
-    console.error("Error saving group message:", err);
-  }
-});
+      io.to(groupId).emit("group_message", {
+        groupId,
+        fromId,
+        fromName: sender?.name || "Unknown",
+        message,
+        timestamp: newGroupMsg.timestamp
+      });
+    } catch (err) {
+      console.error("Error saving group message:", err);
+    }
+  });
 
-//   socket.on('disconnect', () => {
-//     console.log(`Socket ${socket.id} disconnected`);
-//      if (!userId) return;
+  //   socket.on('disconnect', () => {
+  //     console.log(`Socket ${socket.id} disconnected`);
+  //      if (!userId) return;
 
-//     const sockets = onlineUsers.get(userId) || [];
-//     const updated = sockets.filter(id => id !== socket.id);
+  //     const sockets = onlineUsers.get(userId) || [];
+  //     const updated = sockets.filter(id => id !== socket.id);
 
-//     if (updated.length > 0) {
-//       onlineUsers.set(userId, updated);
-//     } else {
-//       onlineUsers.delete(userId);
+  //     if (updated.length > 0) {
+  //       onlineUsers.set(userId, updated);
+  //     } else {
+  //       onlineUsers.delete(userId);
 
-//       // Notify others this user went offline
-//       socket.broadcast.emit("user-offline", userId);
-//     }
-//   });
-// });
+  //       // Notify others this user went offline
+  //       socket.broadcast.emit("user-offline", userId);
+  //     }
+  //   });
+  // });
 
 
   socket.on('disconnect', async () => {
