@@ -117,6 +117,11 @@ socket.on("answerCall", (data) => {
   // Send the answer back to the caller's room
   socket.to(data.to).emit("callAccepted", data.signal);
 });
+
+socket.on("endCall", (data) => {
+  io.to(data.to).emit("callEnded");
+});
+
 // When a user joins, put them in a room with their userId
 // socket.on("join", (userId) => {
 //   socket.join(userId);
