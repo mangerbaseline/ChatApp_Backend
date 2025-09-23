@@ -59,17 +59,13 @@ app.use("/uploads", express.static(path.join(__dirname, "public/uploads")));
 // Connect to MongoDB
 (async function dbconnect() {
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
+    await mongoose.connect(process.env.MONGODB_URI);  
     console.log('Connected successfully to MongoDB');
   } catch (err) {
     console.error('MongoDB connection error:', err.message);
   }
 })();
 
-
-
-
-const onlineUsers = new Map(); // userId -> [socketIds]
 
 // Socket.IO setup
 const io = new Server(server, {
@@ -93,59 +89,37 @@ io.on('connection', async (socket) => {
     socket.broadcast.emit("user-online", userId);
   }
 
-// When a user joins, put them in a room with their userId
-socket.on("join", (userId) => {
-  socket.join(userId);
-  console.log(`User ${userId} joined their personal room`);
-});
-
-// Caller sends a call offer
-socket.on("callUser", (data) => {
-  console.log("callUser event received:", data);
-
-  // Send the offer to the target user's room
-  socket.to(data.userToCall).emit("callUser", {
-    signalData: data.signalData,
-    from: data.from,        // caller's userId
+  // When a user joins, put them in a room with their userId
+  socket.on("join", (userId) => {
+    socket.join(userId);
+    console.log(`User ${userId} joined their personal room`);
   });
-});
 
-// Receiver answers the call
-socket.on("answerCall", (data) => {
-  console.log("answerCall event received:", data);
+  // Caller sends a call offer
+  socket.on("callUser", (data) => {
+    console.log("callUser event received:", data);
 
-  // Send the answer back to the caller's room
-  socket.to(data.to).emit("callAccepted", data.signal);
-});
+    // Send the offer to the target user's room
+    socket.to(data.userToCall).emit("callUser", {
+      signalData: data.signalData,
+      from: data.from,        // caller's userId
+    });
+  });
 
-socket.on("endCall", (data) => {
-  io.to(data.to).emit("callEnded");
-});
+  // Receiver answers the call
+  socket.on("answerCall", (data) => {
+    console.log("answerCall event received:", data);
 
-// When a user joins, put them in a room with their userId
-// socket.on("join", (userId) => {
-//   socket.join(userId);
-//   console.log(`User ${userId} joined their personal room`);
-// });
+    // Send the answer back to the caller's room
+    
+    socket.to(data.to).emit("callAccepted", data.signal);
+    console.log("call answered",data.signal);
+    
+  });
 
-// Caller sends a call offer
-// socket.on("callUser", (data) => {
-//   console.log("callUser event received:", data);
-
-//   // Send the offer to the target user's room
-//   socket.to(data.userToCall).emit("callUser", {
-//     signalData: data.signalData,
-//     from: data.from,        // caller's userId
-//   });
-// });
-
-// Receiver answers the call
-// socket.on("answerCall", (data) => {
-//   console.log("answerCall event received:", data);
-
-//   // Send the answer back to the caller's room
-//   socket.to(data.to).emit("callAccepted", data.signal);
-// });
+  socket.on("endCall", (data) => {
+    io.to(data.to).emit("callEnded");
+  });
 
 
   socket.on('private_message', async ({ to, from, message }) => {
