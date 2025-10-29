@@ -185,39 +185,82 @@ io.on('connection', async (socket) => {
 
 
   /////////////////group file
+  // socket.on("group_file", async ({ from, groupId, fileName, fileType, fileData }) => {
+  //   console.log("📥 group_file hit:", fileName, fileType);
+
+  //   try {
+  //     // fileData is now an ArrayBuffer → convert to Buffer
+  //     const buffer = Buffer.from(fileData);
+
+  //     const tempPath = `public/uploads/${Date.now()}_${fileName}`;
+  //     fs.writeFileSync(tempPath, buffer);
+
+
+  //     const result = await cloudinary.uploader.upload(tempPath, {
+  //       resource_type: "auto",
+  //       folder: "group_files",
+  //     });
+
+  //     fs.unlinkSync(tempPath);
+
+  //     // Save to DB
+  //     const newMsg = new GroupMessage({
+  //       sender: new mongoose.Types.ObjectId(from),
+  //       groupId: new mongoose.Types.ObjectId(groupId),
+  //       text: null,
+  //       fileUrl: result.secure_url,
+  //       fileType,
+  //     });
+
+  //     await newMsg.save();
+
+  //     console.log("✅ Group file saved:", newMsg);
+
+  //     // Emit to others (not sender)
+  //     socket.to(groupId).emit("group_file", {
+  //       _id: newMsg._id,
+  //       groupId,
+  //       sender: newMsg.sender,
+  //       fileUrl: newMsg.fileUrl,
+  //       fileType: newMsg.fileType,
+  //       text: null,
+  //       timestamp: newMsg.timestamp,
+  //     });
+
+  //   } catch (err) {
+  //     console.error("❌ Error handling group file:", err);
+  //   }
+  // });
   socket.on("group_file", async ({ from, groupId, fileName, fileType, fileData }) => {
-    console.log("📥 group_file hit:", fileName, fileType);
+  console.log("📥 group_file hit:", fileName, fileType);
 
-    try {
-      // fileData is now an ArrayBuffer → convert to Buffer
-      const buffer = Buffer.from(fileData);
+  try {
+    // fileData is base64 string → decode it properly
+    const buffer = Buffer.from(fileData, "base64");
 
-      const tempPath = `public/uploads/${Date.now()}_${fileName}`;
-      fs.writeFileSync(tempPath, buffer);
+    const tempPath = `public/uploads/${Date.now()}_${fileName}`;
+    fs.writeFileSync(tempPath, buffer);
 
+    const result = await cloudinary.uploader.upload(tempPath, {
+      resource_type: "auto",
+      folder: "group_files",
+    });
 
-      const result = await cloudinary.uploader.upload(tempPath, {
-        resource_type: "auto",
-        folder: "group_files",
-      });
+    fs.unlinkSync(tempPath);
 
-      fs.unlinkSync(tempPath);
+    const newMsg = new GroupMessage({
+      sender: new mongoose.Types.ObjectId(from),
+      groupId: new mongoose.Types.ObjectId(groupId),
+      text: null,
+      fileUrl: result.secure_url,
+      fileType,
+    });
 
-      // Save to DB
-      const newMsg = new GroupMessage({
-        sender: new mongoose.Types.ObjectId(from),
-        groupId: new mongoose.Types.ObjectId(groupId),
-        text: null,
-        fileUrl: result.secure_url,
-        fileType,
-      });
+    await newMsg.save();
 
-      await newMsg.save();
+    console.log("✅ Group file saved:", newMsg);
 
-      console.log("✅ Group file saved:", newMsg);
-
-      // Emit to others (not sender)
-      socket.to(groupId).emit("group_file", {
+       socket.to(groupId).emit("group_file", {
         _id: newMsg._id,
         groupId,
         sender: newMsg.sender,
@@ -227,10 +270,11 @@ io.on('connection', async (socket) => {
         timestamp: newMsg.timestamp,
       });
 
-    } catch (err) {
-      console.error("❌ Error handling group file:", err);
-    }
-  });
+  } catch (err) {
+    console.error("❌ Error handling group file:", err);
+  }
+});
+
 
 
 
