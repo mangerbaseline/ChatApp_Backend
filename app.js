@@ -136,52 +136,52 @@ io.on('connection', async (socket) => {
   });
 
 
-  // socket.on("private_file", async ({ to, from, fileName, fileType, fileData }) => {
-  //   try {
-  //     console.log("reached back");
+  socket.on("private_file", async ({ to, from, fileName, fileType, fileData }) => {
+    try {
+      console.log("reached back");
 
-  //     let fileUrl = null;
-  //     if (fileData) {
-  //       // console.log("file data", fileData);
+      let fileUrl = null;
+      if (fileData) {
+        // console.log("file data", fileData);
 
-  //       const buffer = Buffer.from(fileData, "base64");
-  //       const tempPath = `public/uploads/${Date.now()}_${fileName}`;
-  //       fs.writeFileSync(tempPath, buffer);
-  //       //  console.log("Before cloudinary");
+        const buffer = Buffer.from(fileData, "base64");
+        const tempPath = `public/uploads/${Date.now()}_${fileName}`;
+        fs.writeFileSync(tempPath, buffer);
+        //  console.log("Before cloudinary");
 
-  //       const result = await cloudinary.uploader.upload(tempPath, {
-  //         resource_type: "auto",
-  //         folder: "chat_files",
-  //       });
-  //       console.log("after cloud", result);
+        const result = await cloudinary.uploader.upload(tempPath, {
+          resource_type: "auto",
+          folder: "chat_files",
+        });
+        console.log("after cloud", result);
 
 
-  //       fileUrl = result.secure_url;
-  //       console.log("file url is: ", fileUrl);
+        fileUrl = result.secure_url;
+        console.log("file url is: ", fileUrl);
 
-  //       fs.unlinkSync(tempPath);
-  //     }
+        fs.unlinkSync(tempPath);
+      }
 
-  //     // Save file message
-  //     const newMsg = new Message({
-  //       from,
-  //       to,
-  //       message: null,
-  //       fileUrl: fileUrl,
-  //       fileType,
-  //     });
-  //     console.log("new message is:", newMsg);
+      // Save file message
+      const newMsg = new Message({
+        from,
+        to,
+        message: null,
+        fileUrl: fileUrl,
+        fileType,
+      });
+      console.log("new message is:", newMsg);
 
-  //     await newMsg.save();
+      await newMsg.save();
 
-  //     // Emit file message
-  //     io.to(to).emit("private_file", newMsg);
-  //     io.to(from).emit("private_file", newMsg);
+      // Emit file message
+      io.to(to).emit("private_file", newMsg);
+      io.to(from).emit("private_file", newMsg);
 
-  //   } catch (err) {
-  //     console.error("Error handling file:", err);
-  //   }
-  // });
+    } catch (err) {
+      console.error("Error handling file:", err);
+    }
+  });
 
 
   /////////////////group file
